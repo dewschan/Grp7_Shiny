@@ -1,0 +1,12 @@
+name: Grp7_Shiny
+title: Grp7_Shiny
+username: dewschan
+account: dewschan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14200185
+bundleId: 9919606
+url: https://dewschan.shinyapps.io/Grp7_Shiny/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
