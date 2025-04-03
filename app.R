@@ -174,7 +174,7 @@ ui <- dashboardPage(
                   tabPanel("Distributions after Spatial Interpolation",
                            fluidRow(
                              column(4,
-                                    selectInput("variable", "Select Variable:",
+                                    selectInput("spatial_variable", "Select Variable:",
                                                 choices = c("Total Rainfall (mm)" = "MonthlyRainfall",
                                                             "Mean Temperature (°C)" = "MonthlyMeanTemp",
                                                             "Mean Wind Speed (km/h)" = "MonthlyMeanWindSpeed"),
@@ -466,14 +466,14 @@ server <- function(input, output, session) {
     # Check which tab is active
     if (input$tabset_variogram == "Automatic Variogram") {
       # Automatically compute variogram model
-      auto_vgm <- variogram(as.formula(paste(input$variable, "~ 1")), data = weather_month())
+      auto_vgm <- variogram(as.formula(paste(input$spatial_variable, "~ 1")), data = weather_month())
       v_model <- fit.variogram(auto_vgm, vgm(model = model_type))
     } else {
       # Use manually specified values for variogram parameters
       v_model <- vgm(psill = input$psill, model = model_type, range = input$range, nugget = input$nugget)
     }
     
-    krige_model <- gstat(formula = as.formula(paste(input$variable, "~ 1")), 
+    krige_model <- gstat(formula = as.formula(paste(input$spatial_variable, "~ 1")), 
                          model = v_model, 
                          data = weather_month())
     
@@ -486,7 +486,7 @@ server <- function(input, output, session) {
     kpred <- terra::rasterize(predictions, grid, field = "pred")
     kpred_var <- terra::rasterize(predictions, grid, field = "variance")
     
-    list(pred_raster = kpred, var_raster = kpred_var, selected_variable = input$variable, selected_month_year = input$month_year)
+    list(pred_raster = kpred, var_raster = kpred_var, selected_variable = input$spatial_variable, selected_month_year = input$month_year)
   })
   
   #Local Measures of Spatial Autocorrelation
