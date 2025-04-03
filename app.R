@@ -8,6 +8,7 @@
 #
 
 # Load all libraries up front
+# ==== Load Libraries ====
 library(shiny)
 library(shinydashboard)
 library(ggplot2)
@@ -29,39 +30,44 @@ library(gstat)
 library(automap)
 
 # ==== Load Datasets ====
-# EDA/CDA
 combined_monthly_data <- read_rds("data/DS/rds/combined_Monthly_data.rds")
 combined_Yearly_data <- read_rds("data/DS/rds/combined_Yearly_data.rds")
-
-variable_labels <- list(
-  denguecases = "Dengue Cases",
-  AvgMeanTemp = "Average Mean Temperature (°C)",
-  MaxTemp = "Maximum Temperature (°C)",
-  MinTemp = "Minimum Temperature (°C)",
-  total_rainfall = "Total Rainfall (mm)",
-  Highest30minRainfall = "Highest 30-min Rainfall (mm)",
-  Highest60minRainfall = "Highest 60-min Rainfall (mm)",
-  Highest120minRainfall = "Highest 120-min Rainfall (mm)",
-  DaysAbove35 = "Days Above 35°C",
-  Elec_consump = "Electricity Consumption (kWh)",
-  Elec_per_Household = "Electricity Consumption per Household (kWh)"
-)
-
-# Filter out Year and Month for scatter plot variable choices
-allowed_scatter_vars <- setdiff(names(combined_monthly_data), c("Year", "Month"))
-
-# Time Series
 combined_data <- read_csv("data/SATH/combined_data.csv")
-
-# Geospatial
 weather_filtered <- read_rds("data/SS/rds/weather_filtered.rds")
 mpsz2019 <- read_rds("data/SS/rds/mpsz2019.rds")
 weather <- read_rds("data/SS/rds/weather.rds")
 mpsz <- read_rds("data/SS/rds/mpsz.rds")
 
+variable_labels <- list(
+  denguecases = "Dengue Cases",
+  AvgMeanTemp = "Average Mean Temperature (\u00b0C)",
+  MaxTemp = "Maximum Temperature (\u00b0C)",
+  MinTemp = "Minimum Temperature (\u00b0C)",
+  total_rainfall = "Total Rainfall (mm)",
+  Highest30minRainfall = "Highest 30-min Rainfall (mm)",
+  Highest60minRainfall = "Highest 60-min Rainfall (mm)",
+  Highest120minRainfall = "Highest 120-min Rainfall (mm)",
+  DaysAbove35 = "Days Above 35\u00b0C",
+  Elec_consump = "Electricity Consumption (kWh)",
+  Elec_per_Household = "Electricity Consumption per Household (kWh)"
+)
+allowed_scatter_vars <- setdiff(names(combined_monthly_data), c("Year", "Month"))
+combined_data <- read_csv("data/SATH/combined_data.csv")
+weather_filtered <- read_rds("data/SS/rds/weather_filtered.rds")
+mpsz2019 <- read_rds("data/SS/rds/mpsz2019.rds")
+weather <- read_rds("data/SS/rds/weather.rds")
+mpsz <- read_rds("data/SS/rds/mpsz.rds")
+
+# Create the prediction grid and spatial points
+grid <- terra::rast(mpsz2019, nrows = 400, ncols = 700)
+xy <- terra::xyFromCell(grid, 1:ncell(grid))
+coop <- st_as_sf(as.data.frame(xy), coords = c("x", "y"), crs = st_crs(mpsz2019))
+coop <- st_filter(coop, mpsz2019)
 # ==== UI ====
 ui <- dashboardPage(
+  skin = "blue",
   dashboardHeader(title = "Dengue & Climate Analysis"),
+  
   dashboardSidebar(
     sidebarMenu(
       menuItem("EDA & CDA", tabName = "eda", icon = icon("chart-bar")),
@@ -69,96 +75,102 @@ ui <- dashboardPage(
       menuItem("Geospatial Analysis", tabName = "geo", icon = icon("globe"))
     )
   ),
+  
   dashboardBody(
     tabItems(
+      
       # ----- EDA & CDA -----
       tabItem(tabName = "eda",
               fluidPage(
                 titlePanel("Visualizations"),
                 tabsetPanel(id = "mainTabs",
-                            tabPanel(
-                              "Combined Plots",
-                              fluidRow(
-                                column(12, p("📊 Select the variables of interest. The histogram shows the distribution, the line graph displays the yearly trend, and the ANOVA plot provides statistical test results."))
-                              ),
-                              sidebarLayout(
-                                sidebarPanel(
-                                  selectInput("variable", "Select Variable:",
-                                              choices = names(variable_labels),
-                                              selected = "total_rainfall"),
-                                  radioButtons("anovaType", "Select ANOVA Type:",
-                                               choices = c("Parametric" = "p", "Non-Parametric" = "np"),
-                                               selected = "np")
-                                ),
-                                mainPanel(
-                                  fluidRow(
-                                    column(6, plotOutput("histPlot")),
-                                    column(6, plotOutput("linePlot"))
-                                  ),
-                                  h3("ANOVA Results"),
-                                  plotOutput("anovaPlot")
-                                )
-                              )
+                            
+                            tabPanel("Combined Plots",
+                                     fluidRow(
+                                       column(12, p("📊 Select the variables of interest. The histogram shows the distribution, the line graph displays the yearly trend, and the ANOVA plot provides statistical test results."))
+                                     ),
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         selectInput("variable", "Select Variable:",
+                                                     choices = names(variable_labels),
+                                                     selected = "total_rainfall"),
+                                         radioButtons("anovaType", "Select ANOVA Type:",
+                                                      choices = c("Parametric" = "p", "Non-Parametric" = "np"),
+                                                      selected = "np")
+                                       ),
+                                       mainPanel(
+                                         fluidRow(
+                                           column(6, plotOutput("histPlot")),
+                                           column(6, plotOutput("linePlot"))
+                                         ),
+                                         h3("ANOVA Results"),
+                                         plotOutput("anovaPlot")
+                                       )
+                                     )
                             ),
-                            tabPanel(
-                              "Correlation Plot",
-                              fluidRow(
-                                column(12, p("🔗 Select variables to explore correlations. Crosses (X) indicate *non-significant* correlations."))
-                              ),
-                              h3("Correlation Matrix"),
-                              uiOutput("corrVars"),
-                              plotOutput("corrPlot")
+                            
+                            tabPanel("Correlation Plot",
+                                     fluidRow(
+                                       column(12, p("🔗 Select variables to explore correlations. Crosses (X) indicate *non-significant* correlations."))
+                                     ),
+                                     h3("Correlation Matrix"),
+                                     uiOutput("corrVars"),
+                                     plotOutput("corrPlot")
                             ),
-                            tabPanel(
-                              "RUN MLR",
-                              fluidRow(
-                                column(12, p("📈 Build a Multiple Linear Regression (MLR) model by selecting a dependent variable (Y) and one or more independent variables (X)."))
-                              ),
-                              h3("Multiple Linear Regression"),
-                              selectInput("dependent", "Select Dependent Variable (Y):",
-                                          choices = c("Dengue Cases" = "denguecases", "Electricity Consumption" = "Monthly_Elec_consump"),
-                                          selected = "denguecases"),
-                              uiOutput("independentVars"),
-                              actionButton("runMLR", "RUN REGRESSION"),
-                              verbatimTextOutput("mlrResults")
+                            
+                            tabPanel("RUN MLR",
+                                     fluidRow(
+                                       column(12, p("📈 Build a Multiple Linear Regression (MLR) model by selecting a dependent variable (Y) and one or more independent variables (X)."))
+                                     ),
+                                     h3("Multiple Linear Regression"),
+                                     selectInput("dependent", "Select Dependent Variable (Y):",
+                                                 choices = c("Dengue Cases" = "denguecases",
+                                                             "Electricity Consumption" = "Monthly_Elec_consump"),
+                                                 selected = "denguecases"),
+                                     uiOutput("independentVars"),
+                                     actionButton("runMLR", "RUN REGRESSION"),
+                                     verbatimTextOutput("mlrResults")
                             ),
-                            tabPanel(
-                              "Scatter with Marginals",
-                              fluidRow(
-                                column(12, p("📌 Based on the results from MLR, select two variables of significance to visualize their relationship in a scatter plot, along with marginal histograms or boxplots."))
-                              ),
-                              sidebarLayout(
-                                sidebarPanel(
-                                  selectInput("xvar", "Select X Variable:",
-                                              choices = allowed_scatter_vars,
-                                              selected = allowed_scatter_vars[1]),
-                                  selectInput("yvar", "Select Y Variable:",
-                                              choices = allowed_scatter_vars,
-                                              selected = allowed_scatter_vars[2]),
-                                  radioButtons("marginalType", "Marginal Plot Type:",
-                                               choices = c("Histogram" = "histogram", "Boxplot" = "boxplot"),
-                                               selected = "histogram")
-                                ),
-                                mainPanel(
-                                  plotOutput("scatterMarginalPlot")
-                                )
-                              )
+                            
+                            tabPanel("Scatter with Marginals",
+                                     fluidRow(
+                                       column(12, p("📌 Based on the results from MLR, select two variables of significance to visualize their relationship in a scatter plot, along with marginal histograms or boxplots."))
+                                     ),
+                                     sidebarLayout(
+                                       sidebarPanel(
+                                         selectInput("xvar", "Select X Variable:",
+                                                     choices = allowed_scatter_vars,
+                                                     selected = allowed_scatter_vars[1]),
+                                         selectInput("yvar", "Select Y Variable:",
+                                                     choices = allowed_scatter_vars,
+                                                     selected = allowed_scatter_vars[2]),
+                                         radioButtons("marginalType", "Marginal Plot Type:",
+                                                      choices = c("Histogram" = "histogram",
+                                                                  "Boxplot" = "boxplot"),
+                                                      selected = "histogram")
+                                       ),
+                                       mainPanel(
+                                         plotOutput("scatterMarginalPlot")
+                                       )
+                                     )
                             )
                 )
-              )))),
+              )
+      ),
       
       # ----- Time Series -----
       tabItem(tabName = "ts",
               fluidPage(
                 plotlyOutput("ts_overview_plot")
-              )),
+              )
+      ),
       
       # ----- Geospatial -----
       tabItem(tabName = "geo",
               fluidPage(
                 titlePanel("Geospatial Analysis"),
-                
                 tabsetPanel(
+                  
                   tabPanel("Distributions after Spatial Interpolation",
                            fluidRow(
                              column(4,
@@ -168,14 +180,19 @@ ui <- dashboardPage(
                                                             "Mean Wind Speed (km/h)" = "MonthlyMeanWindSpeed"),
                                                 selected = "MonthlyMeanTemp"),
                                     selectInput("month_year", "Select Month-Year:",
-                                                choices = format(seq(as.Date("2021-01-01"), as.Date("2024-04-01"), by = "month"), "%b-%Y"),
+                                                choices = format(seq(as.Date("2021-01-01"),
+                                                                     as.Date("2024-04-01"),
+                                                                     by = "month"),
+                                                                 "%b-%Y"),
                                                 selected = "Jan-2021"),
                                     tabsetPanel(
                                       id = "tabset_variogram",
                                       tabPanel("Automatic Variogram", p("Auto-fitted variogram automatically determines the optimal variogram model and parameters (psill, range, nugget) based on the data, so users don't need to manually input these values.")),
                                       tabPanel("Manual Adjustment",
                                                sliderInput("psill", "Psill:", min = 0, max = 5, value = 0.5),
-                                               selectInput("model", "Model Type:", choices = c("Spherical" = "Sph", "Exponential" = "Exp", "Gaussian" = "Gau"), selected = "Sph"),
+                                               selectInput("model", "Model Type:",
+                                                           choices = c("Spherical" = "Sph", "Exponential" = "Exp", "Gaussian" = "Gau"),
+                                                           selected = "Sph"),
                                                sliderInput("range", "Range:", min = 100, max = 10000, value = 5000),
                                                sliderInput("nugget", "Nugget:", min = 0, max = 1, value = 0.1)
                                       )
@@ -194,17 +211,18 @@ ui <- dashboardPage(
                                       ))
                                     )
                              )
-                             ,
-                             fluidRow(
-                               column(12, wellPanel(
-                                 h4("Introduction to Spatial Interpolation"),
-                                 p("Spatial interpolation is the process of predicting values for unmeasured locations based on known values from nearby locations."),
-                                 p("Kriging is a method of spatial interpolation that uses statistical models to predict the value of a variable at unmeasured points, taking into account the spatial correlation between data points."),
-                                 h4("How to Interpret the Plots"),
-                                 p("The first plot represents the predicted values (e.g., temperature, rainfall, or wind speed) for the selected variable at different locations."),
-                                 p("The second plot shows the Kriging variance, which represents the uncertainty of the predictions. Higher variance indicates less confidence in the prediction.")
-                               )
-                               )))),
+                           ),
+                           fluidRow(
+                             column(12, wellPanel(
+                               h4("Introduction to Spatial Interpolation"),
+                               p("Spatial interpolation is the process of predicting values for unmeasured locations based on known values from nearby locations."),
+                               p("Kriging is a method of spatial interpolation that uses statistical models to predict the value of a variable at unmeasured points, taking into account the spatial correlation between data points."),
+                               h4("How to Interpret the Plots"),
+                               p("The first plot represents the predicted values (e.g., temperature, rainfall, or wind speed) for the selected variable at different locations."),
+                               p("The second plot shows the Kriging variance, which represents the uncertainty of the predictions. Higher variance indicates less confidence in the prediction.")
+                             ))
+                           )
+                  ),
                   
                   tabPanel("Local Measure of Spatial Autocorrelation",
                            fluidRow(
@@ -215,40 +233,52 @@ ui <- dashboardPage(
                                                             "Mean Wind Speed (km/h)" = "MonthlyMeanWindSpeed"),
                                                 selected = "MonthlyMeanTemp"),
                                     selectInput("stat_month_year", "Select Month-Year:",
-                                                choices = format(seq(as.Date("2021-01-01"), as.Date("2024-04-01"), by = "month"), "%b-%Y"),
+                                                choices = format(seq(as.Date("2021-01-01"),
+                                                                     as.Date("2024-04-01"),
+                                                                     by = "month"),
+                                                                 "%b-%Y"),
                                                 selected = "Jan-2021"),
                                     selectInput("stat", "Select Statistic:",
-                                                choices = c("Local Moran I" = "ii", "P-value" = "p_ii", "Std Deviation" = "z_ii", "Variance" = "var_ii", "Expectation" = "eii"),
+                                                choices = c("Local Moran I" = "ii",
+                                                            "P-value" = "p_ii",
+                                                            "Std Deviation" = "z_ii",
+                                                            "Variance" = "var_ii",
+                                                            "Expectation" = "eii"),
                                                 selected = "ii"),
                                     sliderInput("nsim", "Number of Simulations:", min = 99, max = 399, value = 99, step = 1),
                                     selectInput("lisa_class", "Select LISA Classification:",
                                                 choices = c("Mean" = "mean", "Median" = "median", "Pysal" = "pysal"),
                                                 selected = "mean")
                              ),
-                             column(4, 
+                             column(4,
                                     wellPanel(
                                       style = "border: 4px solid #004aad; padding: 5px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);",
                                       tmapOutput("stat_plot", height = "350px")
                                     )
-                             ),  
-                             column(4, 
+                             ),
+                             column(4,
                                     wellPanel(
                                       style = "border: 4px solid #004aad; padding: 5px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);",
-                                      tmapOutput("lisa_map", height = "350px") 
+                                      tmapOutput("lisa_map", height = "350px")
                                     )
                              )
                            ),
-                           
-                           # Interpretation text box below the maps
                            fluidRow(
                              column(12, wellPanel(
                                h5("Interpretation of Maps:"),
-                               p("The first map displays the selected statistic (e.g., Local Moran's I, P-value, Std Deviation, etc.) for the chosen variable (e.g., Total Rainfall, Mean Temperature, Mean Wind Speed). Each color in the map represents the value of the statistic for a particular geographic region, where darker or lighter colors indicate higher or lower values of the statistic, respectively. This allows you to observe the spatial distribution and variability of the statistic across the different regions of Singapore."),
-                               p("The second map is the LISA (Local Indicators of Spatial Association) map, which shows significant clusters of similar values for the selected variable. LISA highlights areas where high values are clustered together, and similarly, low values are grouped in specific locations. The LISA map helps to identify whether the spatial patterns are random or whether they exhibit some form of spatial autocorrelation (i.e., whether nearby areas tend to have similar or dissimilar values).")
+                               p("The first map displays the selected statistic (e.g., Local Moran's I, P-value, Std Deviation, etc.) for the chosen variable (e.g., Total Rainfall, Mean Temperature, Mean Wind Speed). Each color in the map represents the value of the statistic for a particular geographic region, where darker or lighter colors indicate higher or lower values of the statistic, respectively."),
+                               p("The second map is the LISA (Local Indicators of Spatial Association) map, which shows significant clusters of similar values for the selected variable. LISA highlights areas where high values are clustered together, and similarly, low values are grouped in specific locations.")
                              ))
                            )
                   )
-                ))))
+                )
+              )
+      )
+    )
+  )
+)
+
+
 
 # ==== SERVER ====
 server <- function(input, output, session) {
@@ -658,3 +688,4 @@ server <- function(input, output, session) {
 
 # ==== Run the App ====
 shinyApp(ui, server)
+
