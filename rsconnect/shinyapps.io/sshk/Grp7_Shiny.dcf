@@ -1,0 +1,12 @@
+name: Grp7_Shiny
+title: Grp7_Shiny
+username: sshk
+account: sshk
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14417787
+bundleId: 10049518
+url: https://sshk.shinyapps.io/Grp7_Shiny/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
