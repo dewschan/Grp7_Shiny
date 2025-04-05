@@ -1,0 +1,12 @@
+name: Grp7_Shiny
+title: Grp7_Shiny
+username: sathvika-7284
+account: sathvika-7284
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 14439379
+bundleId: 10061947
+url: https://sathvika-7284.shinyapps.io/Grp7_Shiny/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
