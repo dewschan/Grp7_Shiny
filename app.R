@@ -36,7 +36,6 @@ library(automap)
 # ==== Load Datasets ====
 combined_monthly_data <- read_rds("data/DS/rds/combined_Monthly_data.rds")
 combined_Yearly_data <- read_rds("data/DS/rds/combined_Yearly_data.rds")
-combined_data <- read_csv("data/SATH/combined_data.csv")
 weather_filtered <- read_rds("data/SS/rds/weather_filtered.rds")
 mpsz2019 <- read_rds("data/SS/rds/mpsz2019.rds")
 weather <- read_rds("data/SS/rds/weather.rds")
